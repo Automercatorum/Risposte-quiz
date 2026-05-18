@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Automercatorum Risposte Quiz</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    body { -webkit-user-select: none; user-select: none; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+    input { -webkit-user-select: text; user-select: text; }
+    .brand { color: #b91c1c; }
+  </style>
+</head>
+<body class="bg-stone-50 text-stone-900 h-screen">
+  <div x-data="app()" x-init="boot()" class="h-full flex flex-col">
+
+    <header class="px-6 py-3 border-b border-stone-200 bg-white flex items-center justify-between shrink-0">
+      <div class="flex items-center gap-2">
+        <span class="text-lg font-semibold brand">Mercatorum</span>
+        <span class="text-sm text-stone-500">Risposte Quiz</span>
+      </div>
+      <div x-show="screen === 'courses' || screen === 'extract'" class="flex items-center gap-3 text-sm text-stone-500">
+        <span x-text="username"></span>
+        <button @click="logout()" class="text-red-700 hover:underline">Esci</button>
+        <button @click="forgetAccount()" class="text-stone-500 hover:text-red-700 text-xs">Dimentica account</button>
+      </div>
+    </header>
+
+    <main class="flex-1 overflow-hidden">
+
+      <section x-show="screen === 'loading'" class="h-full flex items-center justify-center">
+        <div class="text-stone-500 text-sm">Caricamento…</div>
+      </section>
+
+      <section x-show="screen === 'error'" class="h-full flex items-center justify-center p-8">
+        <div class="max-w-md bg-red-50 border border-red-200 rounded-xl p-4 text-sm">
+          <div class="font-semibold text-red-800 mb-2">Errore di avvio</div>
+          <pre x-text="bootError" class="whitespace-pre-wrap text-red-700"></pre>
+        </div>
+      </section>
+
+      <section x-show="screen === 'login'" class="h-full flex items-center justify-center p-8">
+        <form @submit.prevent="doLogin()" class="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-stone-200 p-6 space-y-4">
+          <h2 class="text-xl font-semibold">Accedi</h2>
+          <label class="block">
+            <span class="text-sm text-stone-700">Username / matricola</span>
+            <input x-model="form.user" required autofocus
+                   class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 focus:ring-2 focus:ring-red-500 focus:border-red-500" />
+          </label>
+          <label class="block">
+            <span class="text-sm text-stone-700">Password LMS</span>
+            <input x-model="form.pass" type="password" required
+                   class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2" />
+          </label>
+          <label class="flex items-center gap-2 text-sm text-stone-700">
+            <input x-model="form.remember" type="checkbox" class="accent-red-700" />
+            Salva credenziali su questo Mac
+          </label>
+          <p x-show="error" x-text="error" class="text-sm text-red-600"></p>
+          <button :disabled="busy" type="submit"
+                  class="w-full bg-red-700 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg py-2 font-medium">
+            <span x-show="!busy">Accedi</span>
+            <span x-show="busy">Attendere…</span>
+          </button>
+        </form>
+      </section>
+
+      <section x-show="screen === 'courses'" class="h-full flex flex-col p-6 space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-semibold">
+            Le tue materie <span class="text-stone-400 text-base font-normal" x-text="`(${courses.length})`"></span>
+          </h2>
+          <div class="flex items-center gap-2">
+            <button @click="toggleAll()" class="text-sm text-stone-600 hover:text-red-700"
+                    x-text="allSelected() ? 'Deseleziona tutto' : 'Seleziona tutto'"></button>
+            <button @click="startExtract()" :disabled="selected.length === 0"
+                    class="bg-red-700 hover:bg-red-800 disabled:opacity-30 text-white rounded-lg px-4 py-2 text-sm font-medium">
+              Estrai quiz <span x-text="`(${selected.length})`"></span>
+            </button>
+          </div>
+        </div>
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+          Estrae le risposte corrette dei <strong>quiz di esercitazione</strong> di fine lezione e le salva in un PDF per materia. Solo per studio personale.
+        </div>
+        <div class="flex-1 overflow-y-auto rounded-xl border border-stone-200 bg-white">
+          <table class="w-full text-sm">
+            <thead class="text-stone-500 bg-stone-50">
+              <tr>
+                <th class="w-10 px-3 py-2"></th>
+                <th class="text-left px-3 py-2">Materia</th>
+                <th class="text-left px-3 py-2 w-32">Codice</th>
+                <th class="text-left px-3 py-2 w-24">Progresso</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="c in courses" :key="c.code">
+                <tr class="border-t border-stone-100 hover:bg-stone-50">
+                  <td class="px-3 py-2">
+                    <input type="checkbox" :value="c.code" x-model="selected" class="accent-red-700" />
+                  </td>
+                  <td class="px-3 py-2 font-medium" x-text="c.name"></td>
+                  <td class="px-3 py-2 text-stone-500 font-mono text-xs" x-text="c.code"></td>
+                  <td class="px-3 py-2 text-stone-500" x-text="c.progress != null ? Math.round(c.progress) + '%' : '—'"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section x-show="screen === 'extract'" class="h-full flex flex-col p-6 space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-semibold">Estrazione in corso</h2>
+          <button @click="screen='courses'" class="text-sm text-stone-600 hover:text-red-700">
+            ← Torna alle materie
+          </button>
+        </div>
+        <div class="flex-1 overflow-y-auto space-y-3">
+          <template x-for="course in progress" :key="course.code">
+            <div class="bg-white rounded-xl border border-stone-200 p-4">
+              <div class="flex items-center justify-between">
+                <div class="min-w-0">
+                  <div class="font-medium truncate" x-text="course.name"></div>
+                  <div class="text-xs text-stone-500 truncate" x-text="course.message"></div>
+                </div>
+                <span class="text-sm font-mono shrink-0 ml-3"
+                      :class="course.status === 'error' ? 'text-red-600' : (course.status === 'done' ? 'text-green-700' : 'text-stone-600')"
+                      x-text="course.statusLabel"></span>
+              </div>
+            </div>
+          </template>
+        </div>
+        <div x-show="!extracting && progress.length > 0" class="flex justify-end">
+          <button @click="openOutput()" class="bg-stone-800 hover:bg-stone-900 text-white rounded-lg px-4 py-2 text-sm">
+            Apri cartella output
+          </button>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

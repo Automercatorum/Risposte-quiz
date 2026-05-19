@@ -155,7 +155,8 @@ class JsApi:
             # Render the PDF.
             out_path = OUTPUT / slugify(course.name) / "quiz_risposte.pdf"
             try:
-                render_pdf(course.name, sections, out_path)
+                render_pdf(course.name, sections, out_path,
+                           image_session=self.api.session)
                 total_qa = sum(len(s.qa) for s in sections)
                 self._emit({"kind": "course_done", "course_code": code,
                             "course_name": course.name,
